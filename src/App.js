@@ -1,42 +1,41 @@
 import React, { Component } from 'react'
 import { Stage } from '@inlet/react-pixi';
+import { nanoid } from 'nanoid';
 import Background from './pixiComponents/Background';
 import GameBackground from './pixiComponents/GameBackground';
 import CreditBot from './pixiComponents/CreditBot';
 import gsap from 'gsap/all'
 import GameMap from './pixiComponents/GameMap';
 import Cube from './pixiComponents/Cube';
-import { nanoid } from 'nanoid';
+import './App.css'
 
 export default class App extends Component {
 
   state = {
+    gameStart: false,
     app: null,
     credit: 0,
     cubeArr: [],
   }
 
-  tickerEvent = (...t) => {
+  startGame = (event) => {
+    this.setState({gameStart: true})
 
-  }
-
-  stageMounted = async (event) => {
-    await new Promise(res =>{
-      this.setState({app: event, cubeArr: CubeController.init()}, ()=>{
-        gsap.delayedCall(.5, ()=> {
-          CubeController.createCube()
-          this.setState({})
-          res()
-        })
-      })
-    })
+    CubeController.createCube()
+    this.setState({})
 
     gsap.timeline().repeat(-1)
     .to({}, {duration: 1})
     .eventCallback('onRepeat', ()=>{
-      CubeController.update()
+      if(CubeController.update()){
+        CubeController.nextUpdate()
+      }
       this.setState({})
     })
+  }
+
+  stageMounted = (event) => {
+    this.setState({app: event, cubeArr: CubeController.init()})
   }
 
   operateCube = (key) => {
@@ -51,7 +50,7 @@ export default class App extends Component {
   }
 
   render(){
-    const {credit, cubeArr} = this.state
+    const {gameStart, credit, cubeArr} = this.state
 
     return (
       <>
@@ -68,6 +67,9 @@ export default class App extends Component {
             )
           )}
         </Stage>
+        <div className="cover" style={{display: gameStart? 'none': 'block'}}>
+            <button onClick={this.startGame}>開始遊戲</button>
+        </div>
       </>
     )
   }
@@ -79,7 +81,7 @@ class CubeController{
     const row = 10, column = 6
     this.posMap = Array(column).fill(1).map(_ => Array(row).fill(1).map(_ => ({done: false, exist: false})))
 
-    this.nextCountdown = 1
+    this.nextCountdown = 2
 
     return this.posMap
   }
@@ -89,27 +91,26 @@ class CubeController{
     posArr.map(pos => {
       this.posMap[pos[0]][pos[1]].exist = true
     })
-
-    return this.posMap
   }
 
   static update(){
-    this.posMap.map(column =>{
+    return this.posMap.map(column =>{
       if(column.filter((data, rowIndex) => data.exist && rowIndex >= 9 ).length){   // 到底部了
         column.forEach(data => data.exist && (data.done = true))
-        return
+        return true
       }
 
       // 向下移動
       column.unshift({done: false, exist: false})
       column.pop()
-    })
-
-    return this.posMap
+      return false
+    }).includes(true)
   }
 
   static nextUpdate(){
-
+    if(--this.nextCountdown <= 0){
+      this.nextCountdown = 2
+    }
   }
 
   static operate(key){

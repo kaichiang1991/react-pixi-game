@@ -7,12 +7,13 @@ export default PixiComponent('Cube', {
     },
 
     applyProps: (instance, oldP, newP) =>{
-        const {indicate, rowIndex, colIndex} = newP
+        const {data, rowIndex, colIndex} = newP
+        const {done, exist} = data
 
         instance.clear()
-        if(!indicate)   return
+        if(!exist)   return
 
-        instance.beginFill(0x0000FF, .5)
+        instance.beginFill(done? 0x00FF00: 0x0000FF, .5)
         .drawRoundedRect(0, 0, 50, 50, 5)
         .endFill()
 

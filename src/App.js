@@ -18,34 +18,34 @@ export default class App extends Component {
     cubeArr: [],
   }
 
-  startGame = (event) => {
-    this.setState({gameStart: true})
+  startGame = () => {
 
-    CubeController.createCube()
-    this.setState({})
+    this.setState({gameStart: true, cubeArr: CubeController.createCube()})
 
-    gsap.timeline().repeat(-1)
-    .to({}, {duration: 1})
+    this.updateTicker = gsap.timeline().repeat(-1)
+    .to({}, {duration: .8})
     .eventCallback('onRepeat', ()=>{
-      if(CubeController.update()){
-        CubeController.nextUpdate()
-      }
-      this.setState({})
+      CubeController.update()
+      if(CubeController.nextUpdate())
+        CubeController.createCube()
+      
+      this.setState({cubeArr: CubeController.posMap})
     })
+  }
+
+  puaseGame = () => {
+    this.setState({gameStart: false})
+    this.updateTicker.repeat(0)
+    this.updateTicker.totalProgress(1, true)
   }
 
   stageMounted = (event) => {
     this.setState({app: event, cubeArr: CubeController.init()})
   }
 
-  operateCube = (key) => {
-    CubeController.operate(key)
-  }
-
   componentDidMount(){
     window.addEventListener('keyup', (e) =>{
-      this.operateCube(e.code)
-      this.setState({})
+      this.setState({cubeArr: CubeController.operate(e.code)})
     })
   }
 
@@ -67,8 +67,9 @@ export default class App extends Component {
             )
           )}
         </Stage>
-        <div className="cover" style={{display: gameStart? 'none': 'block'}}>
-            <button onClick={this.startGame}>開始遊戲</button>
+        <div className={`cover ${gameStart? 'disactive': 'active'}`}>
+            <button onClick={this.startGame} disabled={gameStart}>開始遊戲</button>
+            <button onClick={this.puaseGame} disabled={!gameStart}>暫停遊戲</button>
         </div>
       </>
     )
@@ -87,34 +88,56 @@ class CubeController{
   }
 
   static createCube(){
+    console.log('%ccreate', 'color:red;font-size:32px;')
     const posArr = [[0, 0], [1, 0]]
     posArr.map(pos => {
       this.posMap[pos[0]][pos[1]].exist = true
     })
+
+    return this.posMap
   }
 
   static update(){
-    return this.posMap.map(column =>{
-      if(column.filter((data, rowIndex) => data.exist && rowIndex >= 9 ).length){   // 到底部了
-        column.forEach(data => data.exist && (data.done = true))
-        return true
-      }
+    let flag = this.posMap.filter(column => {
+      const _data = column.slice().reverse().find(data => !data.done)
+      const lastIndex = column.indexOf(_data)
+      return column[lastIndex].exist
+    }).length > 0
 
+    if(flag){   // 到底部
+      this.posMap = this.posMap.map(column => column.map(data => data.exist? {done: true, exist: false}: data))
+      console.log('%c到底', 'color:red; font-size: 20px')
+      return
+    }
+
+    console.log('update')
+    this.posMap.map((column, colIndex) =>{
       // 向下移動
+      const _data = column.slice().reverse().find(data => !data.exist && !data.done)
+      const lastIndex = column.indexOf(_data)
+      console.log('向下', colIndex, ' last', lastIndex)
+      column.splice(lastIndex, 1)
       column.unshift({done: false, exist: false})
-      column.pop()
-      return false
-    }).includes(true)
+    })
+
+    console.log(this.posMap)
   }
 
   static nextUpdate(){
+
+    if(this.posMap.flat().find(data => data.exist))
+      return false
+
     if(--this.nextCountdown <= 0){
       this.nextCountdown = 2
+      return true
     }
+
+    return false
   }
 
   static operate(key){
-          switch(key){
+      switch(key){
       //   case "Space":
       //     console.log('%cspace key', 'color:red')
       //     this.operateCube(e.code)
@@ -127,8 +150,9 @@ class CubeController{
           console.log('%cright key', 'color:red')
           this.moveRight()
           break
-          
       }
+
+      return this.posMap
   }
 
   /** 向右移動目前的方塊 */

@@ -11,7 +11,8 @@ export default PixiComponent('Cube', {
         const {done, exist} = data
 
         instance.clear()
-        if(!exist)   return
+        // console.log('done', done, 'exist', exist, colIndex, rowIndex)
+        if(!exist && !done)   return
 
         instance.beginFill(done? 0x00FF00: 0x0000FF, .5)
         .drawRoundedRect(0, 0, 50, 50, 5)

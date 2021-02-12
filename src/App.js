@@ -279,8 +279,19 @@ class CubeController{
 
 class CubeUnit{
   init(){
+    return CubeUnit.type[3]
+    console.log('cube init', ~~(2*Math.random()))
+    return CubeUnit.type[~~(3*Math.random())]
+    
     return Math.random() > .5? [[0,0], [0,1]]: [[0,0], [1,0]]
     // return [[0,0], [0, 1]]
     return [[0,0], [1,0]]
+  }
+
+  static type = {
+    0: [[0,0], [1, 0]],
+    1: [[0,0], [0, 1]],
+    2: [[0,0], [0,1], [1,1]],
+    3: [[0,0], [0,1], [0,2], [ 1,2]]
   }
 }

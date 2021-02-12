@@ -113,7 +113,6 @@ class CubeController{
       }
     }))
 
-    console.log('avtive', activeArr)
     this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
       if(data.state == Cube_State.DONE)
         return
@@ -182,7 +181,6 @@ class CubeController{
     // 把 in-use 的方塊變成 Done
     this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
       if(data.state === Cube_State.IN_USE){
-        console.log('done in use', colIndex, rowIndex)
         this.posMap[colIndex][rowIndex].state = Cube_State.DONE
       }
     }))
@@ -222,13 +220,17 @@ class CubeController{
 
   /** 向右移動目前的方塊 */
   static moveRight = () => {
-    if(this.posMap[this.posMap.length - 1].find(data => data.state == Cube_State.IN_USE)){
+    // 最右側
+    if(this.posMap[this.posMap.length - 1].find(data => data.state == Cube_State.IN_USE))
       return
-    }
+    
+    // 往右會碰到完成的
+    if(this.posMap.find((col, colIndex) => col.find((data, rowIndex) => data.state === Cube_State.IN_USE && this.posMap[colIndex + 1][rowIndex].state === Cube_State.DONE)) !== undefined)
+      return
 
     const activeArr = []
     this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
-      if(data.state == Cube_State.IN_USE){
+      if(data.state === Cube_State.IN_USE){
         activeArr.push([colIndex + 1, rowIndex].join())
       }
     }))
@@ -247,10 +249,13 @@ class CubeController{
 
   /** 向左移動目前的方塊 */
   static moveLeft = () => {
-
-    if(this.posMap[0].find(data => data.state == Cube_State.IN_USE)){
+    // 最左側
+    if(this.posMap[0].find(data => data.state == Cube_State.IN_USE))
       return
-    }
+    
+    // 往右會碰到完成的
+    if(this.posMap.find((col, colIndex) => col.find((data, rowIndex) => data.state === Cube_State.IN_USE && this.posMap[colIndex - 1][rowIndex].state == Cube_State.DONE)) !== undefined)
+      return
 
     const activeArr = []
     this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{

@@ -8,6 +8,8 @@ import gsap from 'gsap/all'
 import GameMap from './pixiComponents/GameMap';
 import Cube from './pixiComponents/Cube';
 import './App.css'
+import { Cube_State } from './contant';
+import { act } from 'react-dom/test-utils';
 
 export default class App extends Component {
 
@@ -79,53 +81,116 @@ export default class App extends Component {
 class CubeController{
 
   static init(){
-    const row = 10, column = 6
-    this.posMap = Array(column).fill(1).map(_ => Array(row).fill(1).map(_ => ({done: false, exist: false})))
-
-    this.nextCountdown = 2
-
+    const row = 10+2, column = 6
+    this.posMap = Array(column).fill(1).map(_ => Array(row).fill(1).map((_, index) => index !== row-1? {state: Cube_State.EMPTY}: {state: Cube_State.DONE}))
     return this.posMap
   }
 
   static createCube(){
     console.log('%ccreate', 'color:red;font-size:32px;')
-    const posArr = [[0, 0], [1, 0]]
-    posArr.map(pos => {
-      this.posMap[pos[0]][pos[1]].exist = true
+    this.nextCountdown = 2
+    const originPos = [2, 0]
+    const cube = new CubeUnit().init()
+    cube.map(pos => [originPos[0]+pos[0], originPos[1]+pos[1]]).map(pos => {
+      this.posMap[pos[0]][pos[1]].state = Cube_State.IN_USE
     })
+
+    console.log(this.posMap)
 
     return this.posMap
   }
 
   static update(){
-    let flag = this.posMap.filter(column => {
-      const _data = column.slice().reverse().find(data => !data.done)
-      const lastIndex = column.indexOf(_data)
-      return column[lastIndex].exist
-    }).length > 0
 
-    if(flag){   // 到底部
-      this.posMap = this.posMap.map(column => column.map(data => data.exist? {done: true, exist: false}: data))
-      console.log('%c到底', 'color:red; font-size: 20px')
-      return
+    const activeArr = [], doneArr = []
+    let state
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state == Cube_State.IN_USE){
+        state = this.posMap[colIndex][rowIndex + 1]?.state
+        if(state === Cube_State.EMPTY || state === Cube_State.IN_USE){
+          activeArr.push([colIndex, rowIndex +1].join())
+        }
+      }
+    }))
+
+    console.log('avtive', activeArr)
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state == Cube_State.DONE)
+        return
+
+      if(activeArr.includes([colIndex, rowIndex].join())){
+        this.posMap[colIndex][rowIndex].state = Cube_State.IN_USE
+      }else{
+        this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
+      }     
+    }))
+    this.doneCheck()
+    return
+
+    if(this.posMap.map(col=> col.slice().reverse().findIndex(data=> data.state === Cube_State.IN_USE)).map(index => index < 0? index: 10 - index)
+      .find((next, index) => next === this.bottomArr[index] )){   // 到底部
+        console.log('%cif-button', 'color:blue')
+        this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+          if(data.state == Cube_State.IN_USE){
+            doneArr.push([colIndex, rowIndex].join())
+          }
+        }))
     }
 
-    console.log('update')
-    this.posMap.map((column, colIndex) =>{
-      // 向下移動
-      const _data = column.slice().reverse().find(data => !data.exist && !data.done)
-      const lastIndex = column.indexOf(_data)
-      console.log('向下', colIndex, ' last', lastIndex)
-      column.splice(lastIndex, 1)
-      column.unshift({done: false, exist: false})
-    })
+    console.log('active', activeArr)
 
-    console.log(this.posMap)
+    if(doneArr.length){
+      console.log(`%cbottom`, 'color:red', doneArr)
+      this.posMap.map((col, colIndex) => col.map((data, rowIndex) => data.state == Cube_State.IN_USE && (this.posMap[colIndex][rowIndex].state = Cube_State.DONE)))
+      
+      let split
+      const botObj = doneArr.reduce((pre, curr) => {
+        split = curr.split(',')
+        if(pre.hasOwnProperty(split[0])){
+          return {...pre, [split[0]]: split[1]*1 > pre[split[0]] * 1? pre[split[0]]: pre[split[1]]}
+        }else{
+          return {...pre, [split[0]]: split[1]}
+        }
+      }, {})
+      
+      Object.keys(botObj).map(key => this.bottomArr[key] = botObj[key]*1 - 1)
+      console.log('bot', this.bottomArr)
+      return
+    }
+    
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex)=>{
+      if(data.state === Cube_State.DONE)
+        return
+
+      if(activeArr.includes([colIndex, rowIndex].join())){
+        this.posMap[colIndex][rowIndex].state = Cube_State.IN_USE
+      }else{
+        this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
+      }
+    }))
+
+    console.log('update', this.posMap)
+  }
+  
+  static doneCheck(){
+    console.log('done check', this.posMap)
+    const hitCube = this.posMap.find((col, colIndex) => col.find((data, rowIndex) => data.state == Cube_State.IN_USE && this.posMap[colIndex][rowIndex+1]?.state === Cube_State.DONE)) !== undefined
+    if(!hitCube)
+      return
+
+      console.log('%chit', 'color:green')
+    // 把 in-use 的方塊變成 Done
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state === Cube_State.IN_USE){
+        console.log('done in use', colIndex, rowIndex)
+        this.posMap[colIndex][rowIndex].state = Cube_State.DONE
+      }
+    }))
   }
 
   static nextUpdate(){
 
-    if(this.posMap.flat().find(data => data.exist))
+    if(this.posMap.flat().find(data => data.state == Cube_State.IN_USE))
       return false
 
     if(--this.nextCountdown <= 0){
@@ -157,54 +222,60 @@ class CubeController{
 
   /** 向右移動目前的方塊 */
   static moveRight = () => {
-    if(this.posMap[this.posMap.length - 1].find(data => !data.done && data.exist)){
+    if(this.posMap[this.posMap.length - 1].find(data => data.state == Cube_State.IN_USE)){
       return
     }
 
     const activeArr = []
-    this.posMap.forEach((col, colIndex) =>{
-      col.forEach((data, rowIndex) =>{
-        if(data.done || !data.exist)
-          return
-        let nextCol = colIndex + 1
-        activeArr.push([nextCol, rowIndex].join())
-      })
-    })
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state == Cube_State.IN_USE){
+        activeArr.push([colIndex + 1, rowIndex].join())
+      }
+    }))
 
-    this.posMap.forEach((col, colIndex) =>{
-      col.forEach((data, rowIndex) =>{
-        if(activeArr.includes([colIndex, rowIndex].join())){
-          this.posMap[colIndex][rowIndex].exist = true
-        }else{
-          this.posMap[colIndex][rowIndex].exist = data.done
-        }
-      })
-    })
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state === Cube_State.DONE)
+        return
+
+      if(activeArr.includes([colIndex, rowIndex].join())){
+        this.posMap[colIndex][rowIndex].state = Cube_State.IN_USE
+      }else{
+        this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
+      }
+    }))
   }
 
   /** 向左移動目前的方塊 */
   static moveLeft = () => {
-    if(this.posMap[0].find(data => !data.done && data.exist))
+
+    if(this.posMap[0].find(data => data.state == Cube_State.IN_USE)){
       return
+    }
 
     const activeArr = []
-    this.posMap.forEach((col, colIndex) =>{
-      col.forEach((data, rowIndex) =>{
-        if(data.done || !data.exist)
-          return
-        let preCol = colIndex -1
-        activeArr.push([preCol, rowIndex].join())
-      })
-    })
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state == Cube_State.IN_USE){
+        activeArr.push([colIndex - 1, rowIndex].join())
+      }
+    }))
 
-    this.posMap.forEach((col, colIndex) =>{
-      col.forEach((data, rowIndex) =>{
-        if(activeArr.includes([colIndex, rowIndex].join())){
-          this.posMap[colIndex][rowIndex].exist = true
-        }else{
-          this.posMap[colIndex][rowIndex].exist = data.done
-        }
-      })
-    })
+    this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
+      if(data.state === Cube_State.DONE)
+        return
+
+      if(activeArr.includes([colIndex, rowIndex].join())){
+        this.posMap[colIndex][rowIndex].state = Cube_State.IN_USE
+      }else{
+        this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
+      }
+    }))
+  }
+}
+
+class CubeUnit{
+  init(){
+    return Math.random() > .5? [[0,0], [0,1]]: [[0,0], [1,0]]
+    // return [[0,0], [0, 1]]
+    return [[0,0], [1,0]]
   }
 }

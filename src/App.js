@@ -9,7 +9,6 @@ import GameMap from './pixiComponents/GameMap';
 import Cube from './pixiComponents/Cube';
 import './App.css'
 import { Cube_State } from './contant';
-import { act } from 'react-dom/test-utils';
 
 export default class App extends Component {
 
@@ -25,7 +24,7 @@ export default class App extends Component {
     this.setState({gameStart: true, cubeArr: CubeController.createCube()})
 
     this.updateTicker = gsap.timeline().repeat(-1)
-    .to({}, {duration: .8})
+    .to({}, {duration: .5})
     .eventCallback('onRepeat', ()=>{
       CubeController.update()
       if(CubeController.nextUpdate())
@@ -95,8 +94,6 @@ class CubeController{
       this.posMap[pos[0]][pos[1]].state = Cube_State.IN_USE
     })
 
-    console.log(this.posMap)
-
     return this.posMap
   }
 
@@ -124,66 +121,87 @@ class CubeController{
       }     
     }))
     this.doneCheck()
-    return
-
-    if(this.posMap.map(col=> col.slice().reverse().findIndex(data=> data.state === Cube_State.IN_USE)).map(index => index < 0? index: 10 - index)
-      .find((next, index) => next === this.bottomArr[index] )){   // 到底部
-        console.log('%cif-button', 'color:blue')
-        this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
-          if(data.state == Cube_State.IN_USE){
-            doneArr.push([colIndex, rowIndex].join())
-          }
-        }))
-    }
-
-    console.log('active', activeArr)
-
-    if(doneArr.length){
-      console.log(`%cbottom`, 'color:red', doneArr)
-      this.posMap.map((col, colIndex) => col.map((data, rowIndex) => data.state == Cube_State.IN_USE && (this.posMap[colIndex][rowIndex].state = Cube_State.DONE)))
-      
-      let split
-      const botObj = doneArr.reduce((pre, curr) => {
-        split = curr.split(',')
-        if(pre.hasOwnProperty(split[0])){
-          return {...pre, [split[0]]: split[1]*1 > pre[split[0]] * 1? pre[split[0]]: pre[split[1]]}
-        }else{
-          return {...pre, [split[0]]: split[1]}
-        }
-      }, {})
-      
-      Object.keys(botObj).map(key => this.bottomArr[key] = botObj[key]*1 - 1)
-      console.log('bot', this.bottomArr)
-      return
-    }
-    
-    this.posMap.map((col, colIndex) => col.map((data, rowIndex)=>{
-      if(data.state === Cube_State.DONE)
-        return
-
-      if(activeArr.includes([colIndex, rowIndex].join())){
-        this.posMap[colIndex][rowIndex].state = Cube_State.IN_USE
-      }else{
-        this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
-      }
-    }))
-
-    console.log('update', this.posMap)
   }
   
   static doneCheck(){
-    console.log('done check', this.posMap)
+    if(this.checkHit()){
+      this.checkWin()
+    }
+  }
+
+  static checkHit(){
     const hitCube = this.posMap.find((col, colIndex) => col.find((data, rowIndex) => data.state == Cube_State.IN_USE && this.posMap[colIndex][rowIndex+1]?.state === Cube_State.DONE)) !== undefined
     if(!hitCube)
-      return
+      return false
 
-      console.log('%chit', 'color:green')
     // 把 in-use 的方塊變成 Done
     this.posMap.map((col, colIndex) => col.map((data, rowIndex) =>{
       if(data.state === Cube_State.IN_USE){
         this.posMap[colIndex][rowIndex].state = Cube_State.DONE
       }
     }))
+
+    return true
+  }
+
+  static checkWin(){
+    const winRowIndexArr = this.posMap[0].map((data, rowIndex) => {
+      if(rowIndex <= 10 && data.state === Cube_State.DONE)  return rowIndex
+    }).map(rowIndex =>{
+      if(rowIndex === undefined)    // map 出來沒有達成條件的
+        return
+
+      if(this.posMap.reduce((pre, curr) => pre && curr[rowIndex].state === Cube_State.DONE)){   // 判斷該列是不是每一個都是 done
+        return rowIndex
+      }
+    }).filter(i => i)
+
+    if(!winRowIndexArr.length)
+      return
+
+    console.log('哪幾排有滿', winRowIndexArr)
+
+    // 消除
+    winRowIndexArr.map(rowIndex =>{
+      this.posMap.map(col => col[rowIndex].state = Cube_State.EMPTY)
+    })
+    
+    console.log('col 1', this.posMap[0].map(data => data.state))
+    // 下落
+    const dropRowCountArr = Array(12).fill(0)
+    winRowIndexArr.map(rowIndex =>{
+      dropRowCountArr.map((_, index) => {
+        if(index <= rowIndex)
+          dropRowCountArr[index]++
+      })
+    }) 
+
+    console.log('每列要落下的格子數量', dropRowCountArr)
+
+    const activeArr = []
+    this.posMap.map((col, colIndex) =>{
+      col.map((data, rowIndex) =>{
+        if(data.state === Cube_State.DONE){
+          // console.log('要加入 active 的 col', colIndex, ' row', rowIndex, ' 狀態', data.state, ' 該列要下掉的數量', dropRowCountArr[rowIndex])
+          activeArr.push([colIndex, rowIndex+ dropRowCountArr[rowIndex]].join())
+        }
+      })
+    })
+
+    console.log('下一次更新的格子', activeArr)
+    
+    this.posMap.map((col, colIndex) =>{
+      col.map((data, rowIndex) =>{
+        if(rowIndex === 11)
+          return
+        
+        if(activeArr.includes([colIndex, rowIndex].join())){
+          this.posMap[colIndex][rowIndex].state = Cube_State.DONE
+        }else{
+          this.posMap[colIndex][rowIndex].state = Cube_State.EMPTY
+        }
+      })
+    })
   }
 
   static nextUpdate(){
@@ -279,13 +297,7 @@ class CubeController{
 
 class CubeUnit{
   init(){
-    return CubeUnit.type[3]
-    console.log('cube init', ~~(2*Math.random()))
-    return CubeUnit.type[~~(3*Math.random())]
-    
-    return Math.random() > .5? [[0,0], [0,1]]: [[0,0], [1,0]]
-    // return [[0,0], [0, 1]]
-    return [[0,0], [1,0]]
+    return CubeUnit.type[~~(4*Math.random())]
   }
 
   static type = {
